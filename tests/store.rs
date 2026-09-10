@@ -7,6 +7,25 @@ fn store_at(base: &Path) -> VaultStore {
 }
 
 #[test]
+fn explicit_api_runtime_rejects_relative_paths_and_releases_lock() {
+    let base = tempfile::tempdir().expect("temporary directory");
+    let store = store_at(base.path());
+    let password = b"correct horse battery staple";
+    store.add_user("alice", password).expect("add alice");
+    let invalid = VaultStore::new(base.path().join("vault")).with_runtime_root("relative-runtime");
+    assert!(matches!(
+        invalid.unlock("alice", password),
+        Err(VaultError::InvalidConfiguration(_))
+    ));
+    assert!(!base.path().join("runtime").exists());
+    store
+        .unlock("alice", password)
+        .expect("lock released")
+        .close()
+        .expect("close");
+}
+
+#[test]
 fn runtime_path_is_stable_private_and_removed_between_unlocks() {
     let base = tempfile::tempdir().expect("temporary directory");
     let store = store_at(base.path());

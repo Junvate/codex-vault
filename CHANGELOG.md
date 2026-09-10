@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+- Made explicit runtime overrides fail closed instead of silently falling back to another directory.
+  Environment and library overrides require absolute paths and share canonical private-root checks.
+- Added isolated-process coverage for environment selection and regressions for invalid paths,
+  unchanged shared directories, and profile-lock release after rejecting a runtime override.
+
 - Fixed real Codex 0.153.4 resume failures after a Vault close/reopen by using stable per-profile
   runtime paths under a canonical runtime root; directories are still created exclusively.
 - Refused pre-existing runtime directories/files/symlinks without modifying them.

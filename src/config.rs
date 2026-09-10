@@ -22,9 +22,6 @@ pub fn default_vault_root() -> Result<PathBuf> {
 
 pub fn select_runtime_root() -> Result<PathBuf> {
     let mut candidates = Vec::new();
-    if let Some(path) = env::var_os("CODEX_VAULT_RUNTIME_DIR") {
-        candidates.push(PathBuf::from(path));
-    }
     if let Some(path) = env::var_os("XDG_RUNTIME_DIR") {
         candidates.push(PathBuf::from(path).join(APP_NAME));
     }
@@ -36,15 +33,39 @@ pub fn select_runtime_root() -> Result<PathBuf> {
     }
     candidates.push(env::temp_dir().join(format!("{APP_NAME}-{}", geteuid().as_raw())));
 
+    select_runtime_root_from(
+        env::var_os("CODEX_VAULT_RUNTIME_DIR").map(PathBuf::from),
+        candidates,
+    )
+}
+
+fn select_runtime_root_from(
+    explicit: Option<PathBuf>,
+    candidates: impl IntoIterator<Item = PathBuf>,
+) -> Result<PathBuf> {
+    if let Some(path) = explicit {
+        return prepare_runtime_root(&path);
+    }
+
     for candidate in candidates {
-        if ensure_private_directory(&candidate).is_ok() {
-            return Ok(candidate);
+        if let Ok(path) = prepare_runtime_root(&candidate) {
+            return Ok(path);
         }
     }
 
     Err(VaultError::InvalidConfiguration(
         "no private writable runtime directory is available".into(),
     ))
+}
+
+pub fn prepare_runtime_root(path: &Path) -> Result<PathBuf> {
+    if !path.is_absolute() {
+        return Err(VaultError::InvalidConfiguration(
+            "runtime root must be an absolute path; refusing implicit relocation".into(),
+        ));
+    }
+    ensure_private_directory(path)?;
+    Ok(fs::canonicalize(path)?)
 }
 
 pub fn ensure_private_directory(path: &Path) -> Result<()> {
@@ -111,4 +132,84 @@ pub fn validate_private_file(path: &Path) -> Result<fs::Metadata> {
         }
     }
     Ok(metadata)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn explicit_runtime_is_canonical_and_never_uses_fallback() {
+        let base = tempfile::tempdir().expect("temporary directory");
+        let explicit = base.path().join("private-runtime");
+        let fallback = base.path().join("fallback");
+        let selected = select_runtime_root_from(Some(explicit.clone()), [fallback.clone()])
+            .expect("explicit runtime");
+        assert_eq!(
+            selected,
+            fs::canonicalize(explicit).expect("canonical root")
+        );
+        assert!(!fallback.exists());
+    }
+
+    #[test]
+    fn relative_and_empty_explicit_roots_do_not_fall_back() {
+        let base = tempfile::tempdir().expect("temporary directory");
+        let fallback = base.path().join("fallback");
+        for path in [PathBuf::new(), PathBuf::from("relative-runtime")] {
+            assert!(matches!(
+                select_runtime_root_from(Some(path), [fallback.clone()]),
+                Err(VaultError::InvalidConfiguration(_))
+            ));
+            assert!(!fallback.exists());
+        }
+    }
+
+    #[test]
+    fn regular_file_override_is_preserved_and_not_bypassed() {
+        let base = tempfile::tempdir().expect("temporary directory");
+        let path = base.path().join("not-a-directory");
+        let fallback = base.path().join("fallback");
+        fs::write(&path, b"preserve me").expect("file");
+        assert!(select_runtime_root_from(Some(path.clone()), [fallback.clone()]).is_err());
+        assert_eq!(fs::read(path).expect("file unchanged"), b"preserve me");
+        assert!(!fallback.exists());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn unsafe_and_symlink_overrides_fail_without_mutation() {
+        use std::os::unix::fs::{PermissionsExt, symlink};
+        let base = tempfile::tempdir().expect("temporary directory");
+        let shared = base.path().join("shared");
+        let link = base.path().join("link");
+        let fallback = base.path().join("fallback");
+        fs::create_dir(&shared).expect("shared directory");
+        fs::set_permissions(&shared, fs::Permissions::from_mode(0o755)).expect("permissions");
+        symlink(&shared, &link).expect("link");
+        for path in [&shared, &link] {
+            assert!(select_runtime_root_from(Some(path.clone()), [fallback.clone()]).is_err());
+        }
+        assert!(!fallback.exists());
+        assert_eq!(fs::read_link(link).expect("preserved link"), shared);
+        assert_eq!(
+            fs::metadata(shared).expect("metadata").permissions().mode() & 0o777,
+            0o755
+        );
+    }
+
+    #[test]
+    fn automatic_selection_can_skip_an_unusable_candidate() {
+        let base = tempfile::tempdir().expect("temporary directory");
+        let file = base.path().join("file");
+        let fallback = base.path().join("fallback");
+        fs::write(&file, b"preserve me").expect("file");
+        let selected = select_runtime_root_from(None, [file.clone(), fallback.clone()])
+            .expect("automatic fallback");
+        assert_eq!(
+            selected,
+            fs::canonicalize(fallback).expect("canonical fallback")
+        );
+        assert_eq!(fs::read(file).expect("file unchanged"), b"preserve me");
+    }
 }

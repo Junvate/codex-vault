@@ -95,6 +95,13 @@ unresolvable. Automatic migration is not implemented; keep an encrypted backup b
 - `XDG_RUNTIME_DIR`: preferred runtime on Linux when no override is set.
 - `/dev/shm`: Linux memory-backed fallback.
 
+An explicit `CODEX_VAULT_RUNTIME_DIR` (or library runtime override) must be an absolute path.
+Invalid ownership, permissions, path type, or creation failures stop unlock; they do not select
+another directory. Existing directories are not chmod'ed. Without an override, automatic
+selection still tries the documented candidates and may change across environments. For repeatable
+resume behavior, configure an unchanged absolute runtime root on the intended storage medium;
+this path check alone does not prove that the medium is memory-backed or encrypted.
+
 ## Project Status
 
 Upstream contribution work is tracked in [Upstream Readiness](docs/UPSTREAM_READINESS.md).

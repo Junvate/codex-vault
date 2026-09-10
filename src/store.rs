@@ -15,7 +15,7 @@ use zeroize::Zeroizing;
 use crate::{
     archive::{seal_directory, unseal_directory},
     config::{
-        default_vault_root, ensure_private_directory, select_runtime_root,
+        default_vault_root, ensure_private_directory, prepare_runtime_root, select_runtime_root,
         validate_private_directory, validate_private_file,
     },
     crypto::{default_kdf_parameters, derive_key, unwrap_data_key, wrap_data_key},
@@ -50,6 +50,7 @@ impl VaultStore {
     }
 
     #[must_use]
+    /// Sets an absolute runtime root; invalid roots fail unlock without automatic fallback.
     pub fn with_runtime_root(mut self, runtime_root: impl Into<PathBuf>) -> Self {
         self.runtime_root = Some(runtime_root.into());
         self
@@ -205,10 +206,7 @@ impl VaultStore {
             )?;
 
             let runtime_root = match &self.runtime_root {
-                Some(path) => {
-                    ensure_private_directory(path)?;
-                    path.clone()
-                }
+                Some(path) => prepare_runtime_root(path)?,
                 None => select_runtime_root()?,
             };
             let runtime = tempfile::Builder::new()
@@ -222,7 +220,7 @@ impl VaultStore {
                         .to_string(),
                 )
                 .rand_bytes(0)
-                .tempdir_in(fs::canonicalize(runtime_root)?)?;
+                .tempdir_in(runtime_root)?;
             let codex_home = runtime.path().join("codex-home");
             ensure_private_directory(&codex_home)?;
             unseal_directory(&user_root.join("state.cvlt"), &codex_home, &data_key)?;
