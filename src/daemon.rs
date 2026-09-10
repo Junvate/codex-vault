@@ -105,9 +105,9 @@ pub fn default_daemon_socket() -> Result<PathBuf> {
         if run_user.is_dir() {
             return Ok(run_user.join("codex-vault").join("control.sock"));
         }
-        return Ok(env::temp_dir()
+        Ok(env::temp_dir()
             .join(format!("codex-vault-{uid}"))
-            .join("control.sock"));
+            .join("control.sock"))
     }
 
     #[cfg(not(target_os = "linux"))]

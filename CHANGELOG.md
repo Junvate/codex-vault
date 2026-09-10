@@ -14,6 +14,7 @@ All notable changes to this project will be documented in this file.
 - Added Linux integration tests for protocol versions, peer rejection, socket permissions, and
   stale path handling.
 - Updated GitHub Actions checkout to the Node 24-based v7 release.
+- Configured the operating-system test matrix to report every platform result independently.
 
 ## 0.1.2 - 2026-09-10
 
