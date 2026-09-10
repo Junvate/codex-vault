@@ -12,10 +12,12 @@ When a user is logged out and the runtime directory has been removed, Codex stat
 - A root user, kernel administrator, hypervisor administrator, or compromised host can read unlocked data.
 - `SIGKILL`, power loss, kernel panic, or runtime failure can leave a plaintext runtime directory behind.
 - Files Codex writes outside `CODEX_HOME`, including shared repositories, shell history, caches, and editor state, are outside the vault.
-- JavaScript runtimes do not provide reliable guarantees that all password copies are immediately erased from memory.
+- Rust-owned password and key buffers are cleared where possible, but operating-system, terminal, allocator, dependency, and process copies cannot be proven absent.
 - Usernames and creation timestamps are metadata and are not encrypted.
 
 For hostile shared-account deployments, wait for the daemon and dedicated-UID isolation milestone described in the roadmap.
+
+The Rust rewrite has not received an independent cryptographic audit. Passing tests and using established primitives are necessary controls, not substitutes for third-party review.
 
 ## Reporting a Vulnerability
 

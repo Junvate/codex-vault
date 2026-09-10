@@ -1,9 +1,5 @@
-node_modules/
-dist/
-coverage/
-*.log
+/target/
+**/*.rs.bk
 .DS_Store
 .env
 .codex-vault/
-*.tmp
-

@@ -1,63 +1,80 @@
 # Codex Vault
 
-Codex Vault is an early-stage security launcher for isolating and encrypting local Codex CLI state on shared machines.
+Codex Vault is a Rust security launcher that gives each application-level user an isolated, encrypted `CODEX_HOME` on a shared machine.
 
-It gives every application-level user a separate encrypted `CODEX_HOME`. Running Codex through the launcher decrypts only that user's state, starts the real Codex CLI, then reseals the state after Codex exits.
+The current `v0.1` baseline provides encrypted state at rest and prevents accidental cross-user access through `codex resume`. It is not yet a complete isolation boundary for hostile people sharing the same operating-system UID. Read [SECURITY.md](SECURITY.md) before deployment.
 
-> Status: security prototype. Version 0.1 protects data at rest and prevents accidental cross-user `codex resume` access. It is not yet a complete isolation boundary for hostile people sharing the same operating-system account. See [SECURITY.md](SECURITY.md) before deployment.
+## Security Design
 
-## Current Features
+```text
+username + password
+        -> Argon2id wrapping key
+        -> decrypt random per-user data key
+        -> decrypt private CODEX_HOME into a restricted runtime
+        -> run the real Codex CLI
+        -> authenticate and encrypt the updated state
+        -> remove the runtime and release the system file lock
+```
 
-- Per-user encrypted Codex state.
-- Argon2id password-based key derivation.
-- Random data key per user with authenticated key wrapping.
-- Chunked AES-256-GCM encryption with tamper, frame-order, truncation, and trailing-data detection.
-- Private runtime directory and cleanup after Codex exits.
-- Per-user process lock to prevent concurrent state corruption.
-- Passwords are read from a hidden terminal prompt, never accepted as command-line arguments or environment variables.
-
-## Requirements
-
-- Node.js 22 or newer.
-- An installed `codex` executable.
+- Argon2id uses 64 MiB memory, three passes, and a unique 128-bit salt.
+- Every user receives a random 256-bit data key.
+- Data keys are wrapped with AES-256-GCM and authenticated manifest metadata.
+- Codex state uses chunked AES-256-GCM with a 96-bit random nonce seed plus frame sequence, ordering, tamper, truncation, and trailing-data checks.
+- Passwords are accepted only through a hidden terminal prompt.
+- Secret key buffers use Rust `Zeroizing` where the implementation controls their lifetime.
+- Storage is restricted to the current UID, `0700` directories, and `0600` files.
 
 ## Build
 
-```bash
-npm install
-npm run verify
-```
-
-## Quick Start
+Install Rust with `rustup`, then run:
 
 ```bash
-node dist/cli.js init
-node dist/cli.js user add alice
-node dist/cli.js run --user alice --
-node dist/cli.js run --user alice -- resume
+cargo build --release
+cargo test
 ```
 
-To preserve the normal `codex` command on a personal shell, add this function after building:
+The executable is `target/release/codex-vault`. Install it for the current user with:
+
+```bash
+cargo install --path .
+```
+
+## Usage
+
+```bash
+codex-vault init
+codex-vault user add alice
+codex-vault user list
+
+codex-vault run --user alice --
+codex-vault run --user alice -- resume
+codex-vault run --user alice -- resume --last
+```
+
+Set `CODEX_VAULT_USER=alice` to skip the username prompt. The password is still requested for every launch.
+
+To keep the original command shape, add this shell function after installing `codex-vault`:
 
 ```bash
 codex() {
-  command node /absolute/path/to/codex-vault/dist/cli.js run -- "$@"
+  command codex-vault run -- "$@"
 }
 ```
 
-Set `CODEX_VAULT_USER=alice` to skip the username prompt. The password is still requested for every launch. Set `CODEX_VAULT_REAL_CODEX` only when the real executable has a different name or absolute path.
+The launcher invokes the real `codex` executable directly from `PATH`; shell functions are not used by the child process. Set `CODEX_VAULT_REAL_CODEX` to an absolute executable path when explicit resolution is required.
 
 ## Storage
 
-The default encrypted state root is `~/.codex-vault`. Override it with `CODEX_VAULT_HOME`.
+- `CODEX_VAULT_HOME`: encrypted root, default `~/.codex-vault`.
+- `CODEX_VAULT_RUNTIME_DIR`: private plaintext runtime override.
+- `XDG_RUNTIME_DIR`: preferred runtime on Linux when no override is set.
+- `/dev/shm`: Linux memory-backed fallback.
 
-On Linux, runtime plaintext prefers `XDG_RUNTIME_DIR`, then `/dev/shm`. On other systems it uses the operating-system temporary directory. Override this with `CODEX_VAULT_RUNTIME_DIR`.
+## Project Status
 
-## Project Direction
+`v0.1` is the maintained prototype line. `v0.2` will add the privileged Linux daemon, PAM authentication, dedicated UID execution, and encrypted filesystem mounts required for hostile-user isolation.
 
-Version 0.2 will introduce a privileged Linux daemon that authenticates through PAM or OIDC and launches Codex under a dedicated UID or container. That isolation layer is required before the project can claim protection against malicious users who share a shell account.
-
-See [docs/ROADMAP.md](docs/ROADMAP.md), [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md), and [docs/MAINTENANCE.md](docs/MAINTENANCE.md).
+See [Architecture](docs/ARCHITECTURE.md), [Threat Model](docs/THREAT_MODEL.md), [Roadmap](docs/ROADMAP.md), and [Maintenance Policy](docs/MAINTENANCE.md).
 
 ## License
 

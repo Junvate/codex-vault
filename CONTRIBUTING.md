@@ -5,8 +5,9 @@ Security properties are part of the public API. Changes to authentication, key d
 ## Development
 
 ```bash
-npm install
-npm run verify
+cargo fmt -- --check
+cargo clippy --all-targets --all-features --locked -- -D warnings
+cargo test --all-targets --all-features --locked
 ```
 
 Keep pull requests focused. Do not add custom cryptographic primitives or replace established algorithms without a written design review and migration plan.

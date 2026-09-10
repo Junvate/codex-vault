@@ -1,39 +1,50 @@
 # Roadmap
 
-## 0.1: Encrypted Prototype
+Last updated: 2026-09-10.
 
-- [x] Git repository and Apache-2.0 licensing.
-- [x] Per-user manifests and isolated `CODEX_HOME` state.
-- [x] Argon2id password derivation and envelope encryption.
+## v0.1: Rust CLI Baseline
+
+- [x] Rust CLI launcher.
+- [x] User registration and password login.
+- [x] Independent encrypted `CODEX_HOME` per user.
+- [x] UID ownership and private permission checks.
+- [x] Argon2id password derivation and per-user envelope encryption.
 - [x] Authenticated streaming vault format.
-- [x] Codex subprocess launcher and automatic resealing.
-- [x] Unit and integration tests for encryption and user isolation.
+- [x] System file locks and automatic resealing after Codex exits.
+- [x] Tests for tampering, truncation, user isolation, permissions, and process launch.
 - [ ] Password rotation by rewrapping the data key.
-- [ ] Explicit recovery-key design.
-- [ ] Stale plaintext runtime scanner and secure cleanup command.
+- [ ] Stale plaintext runtime scanner and recovery command.
 
-## 0.2: Linux Security Boundary
+## v0.2: Daemon And OS Isolation
 
-- Privileged `codex-vaultd` system service.
-- PAM, LDAP, or OIDC authentication adapters.
-- Dedicated UID, mount namespace, process group, and private runtime per session.
-- Encrypted filesystem mount rather than archive extraction.
-- Terminal proxy and clean environment construction.
-- Audit events without prompt or transcript content.
+- Background `codex-vaultd` service.
+- Dedicated UID for every active user session.
+- PAM authentication.
+- Automatic encrypted-directory mount and unmount.
+- Private process group, mount namespace, environment, and runtime.
 - Installable `codex` shim with bypass detection.
 
-## 0.3: Team Operations
+## v0.3: Container And Workspace Isolation
 
-- Per-user OpenAI credential policy and central API gateway option.
-- Account disablement, session revocation, idle locking, and key rotation.
+- Container isolation for Codex processes.
+- Per-user Git worktrees.
+- Idle session locking and termination.
+- Abnormal-exit detection and recovery.
+- Plaintext runtime inventory and cleanup after crashes or restarts.
+
+## v0.4: Organization Management
+
+- LDAP and OIDC authentication.
+- Administrator console.
+- Account disablement and active-session revocation.
+- Password, data-key, and master-key rotation.
 - Encrypted backup, restore, and optional administrator recovery.
-- Per-user Git worktrees and shared-project access policy.
-- Signed packages, reproducible builds, and dependency attestations.
+- Per-user OpenAI credential and usage policy.
 
-## 1.0: Audited Release
+## v1.0: Audited Release
 
-- Stable vault format and documented migration policy.
-- Independent cryptographic and system-security review.
-- Fuzzing for vault parsing, archive extraction, and daemon IPC.
-- Supported Linux distributions and hardened deployment guide.
-- Incident response and private vulnerability-reporting channel.
+- Independent cryptographic and system-security audit.
+- Final threat model and hardened deployment guide.
+- Fuzzing for vault parsing, archive extraction, daemon IPC, and authentication messages.
+- Signed installation packages and release artifacts.
+- Reproducible builds, dependency attestations, and incident-response process.

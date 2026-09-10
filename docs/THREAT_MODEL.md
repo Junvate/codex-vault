@@ -26,6 +26,7 @@ Encryption alone is not a process-isolation mechanism. If two people share the s
 - Accidental use of another profile through `codex resume`.
 - Modification, reordering, truncation, or extension of encrypted state.
 - Concurrent attempts to unlock the same application profile.
+- Profile directories or files with unsafe owner or group/world permissions.
 
 ## Version 0.1 Out of Scope
 
@@ -35,6 +36,14 @@ Encryption alone is not a process-isolation mechanism. If two people share the s
 - Data intentionally or accidentally written outside `CODEX_HOME`.
 - Network confidentiality beyond the protections supplied by Codex and OpenAI.
 - Availability attacks, deletion, rollback to an older valid vault, and denial of service.
+
+## Cryptographic Construction
+
+- Password input is transformed into a 256-bit key with Argon2id and a unique 128-bit salt.
+- A random 256-bit data key encrypts the user's Codex state.
+- AES-256-GCM wraps the data key and authenticates the user identity, creation time, KDF parameters, format version, and vault version.
+- State is divided into bounded frames from a random 96-bit nonce seed. Every frame authenticates the file header, frame type, sequence number, and plaintext length.
+- A separately authenticated final frame makes complete-frame truncation detectable.
 
 ## Required Security Tests
 

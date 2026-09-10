@@ -15,7 +15,7 @@ Maintenance decisions use this order:
 
 Every release must satisfy all of the following:
 
-- `npm run verify` passes on supported Node.js versions.
+- Formatting, Clippy, tests, and release builds pass on the pinned Rust toolchain.
 - Production dependencies have no unreviewed known vulnerability.
 - Cryptographic or isolation changes include negative security tests.
 - Vault-format changes include a versioned migration and rollback plan.
@@ -30,6 +30,16 @@ The `state.cvlt` magic and user-manifest version are compatibility contracts. Re
 ## Dependency Updates
 
 Automated dependency pull requests run weekly. Cryptographic, archive, process-management, and authentication updates require the full test suite and a review of upstream security notes before merging.
+
+The local verification sequence is:
+
+```bash
+cargo fmt -- --check
+cargo clippy --all-targets --all-features --locked -- -D warnings
+cargo test --all-targets --all-features --locked
+cargo build --release --locked
+cargo audit
+```
 
 ## Security Changes
 
