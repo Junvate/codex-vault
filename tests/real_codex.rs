@@ -87,6 +87,8 @@ fn file_auth_survives_runtime_relocation_and_logout_is_persisted() {
 
 #[test]
 #[ignore = "requires an explicitly selected native Codex binary and exact version"]
+// Keep the ordered cross-profile scenario together so its history assertions remain auditable.
+#[allow(clippy::too_many_lines)]
 fn real_resume_uses_only_the_unlocked_profile_history() {
     let binary = PathBuf::from(env::var_os("CODEX_VAULT_TEST_CODEX").expect("binary path"));
     assert!(binary.is_absolute() && binary.is_file());
@@ -144,6 +146,25 @@ fn real_resume_uses_only_the_unlocked_profile_history() {
         &[
             "exec",
             "resume",
+            "--skip-git-repo-check",
+            "--json",
+            &alice_thread,
+            "foreign-id-probe-82516",
+        ],
+    );
+    assert_ne!(code, 0, "foreign thread must not resume: {output}");
+    assert!(!output.contains("alice-private-marker-18739"), "{output}");
+    assert!(
+        server.take_requests().is_empty(),
+        "foreign resume must not reach provider"
+    );
+    let (code, output) = invoke(
+        &binary,
+        &home,
+        bob.codex_home(),
+        &[
+            "exec",
+            "resume",
             "--last",
             "--all",
             "--skip-git-repo-check",
@@ -188,6 +209,34 @@ fn real_resume_uses_only_the_unlocked_profile_history() {
     assert!(body.contains("alice-private-marker-18739"));
     assert!(body.contains("alice-followup-marker-95310"));
     assert!(body.contains("fixture-reply"));
+    assert!(!body.contains("bob-public-marker-24198"));
+
+    let alice = store
+        .unlock("alice", password)
+        .expect("reopen for explicit ID");
+    let (code, output) = invoke(
+        &binary,
+        &home,
+        alice.codex_home(),
+        &[
+            "exec",
+            "resume",
+            "--skip-git-repo-check",
+            "--json",
+            &alice_thread,
+            "alice-explicit-id-marker-62941",
+        ],
+    );
+    assert_eq!(code, 0, "{output}");
+    assert_eq!(thread_id(&output), alice_thread);
+    alice.close().expect("seal explicit-ID turn");
+    let requests = server.take_requests();
+    assert_eq!(requests.len(), 1);
+    let body = requests[0].to_string();
+    assert!(body.contains("alice-private-marker-18739"));
+    assert!(body.contains("alice-followup-marker-95310"));
+    assert!(body.contains("alice-explicit-id-marker-62941"));
+    assert!(!body.contains("foreign-id-probe-82516"));
     assert!(!body.contains("bob-public-marker-24198"));
     assert_eq!(fs::read_dir(&runtime).expect("runtime").count(), 0);
 }

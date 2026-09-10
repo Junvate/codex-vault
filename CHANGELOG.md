@@ -4,6 +4,9 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+- Extended real-Codex regression coverage to reject Bob's explicit Alice thread ID without
+  contacting the fixture provider, and verify Alice can resume that same ID with her own history.
+
 - Added Linux and macOS real-Codex compatibility CI using version 0.153.4 release archives with
   pinned SHA-256 verification; both file-auth and exec/resume tests run explicitly without credentials.
 

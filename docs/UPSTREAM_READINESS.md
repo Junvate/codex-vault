@@ -62,3 +62,7 @@ external PR route unavailable.
 Pinned real-Codex file-auth and exec/resume tests also passed in both Linux and macOS CI;
 see [cross-platform evidence](../validation/ci-codex-0.153.4.md). This closes only the platform
 gap for those specific scenarios, not the remaining authentication or security gates above.
+
+The resume regression additionally checks explicit foreign-thread rejection with no provider
+request, and explicit owner-thread restoration. This exercises the selected profile while Alice
+is sealed; it does not prove isolation from hostile same-UID access to an active runtime.
