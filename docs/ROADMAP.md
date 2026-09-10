@@ -17,8 +17,9 @@ Last updated: 2026-09-10.
 
 ## v0.2: Daemon And OS Isolation
 
-- [ ] Versioned, authenticated Unix-socket protocol and peer-credential checks.
-- Background `codex-vaultd` service.
+- [x] Versioned, bounded Unix-socket protocol and Linux peer-credential checks.
+- [x] Foreground `codex-vaultd` service with graceful shutdown and stale-socket recovery.
+- [ ] systemd service hardening and privileged daemon packaging.
 - Dedicated UID for every active user session.
 - PAM authentication.
 - Automatic encrypted-directory mount and unmount.

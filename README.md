@@ -67,6 +67,20 @@ codex() {
 
 The launcher invokes the real `codex` executable directly from `PATH`; shell functions are not used by the child process. Set `CODEX_VAULT_REAL_CODEX` to an absolute executable path when explicit resolution is required.
 
+## Daemon Alpha
+
+On Linux, `v0.2.0-alpha.1` includes a status-only daemon protocol prototype:
+
+```bash
+codex-vaultd
+codex-vault daemon status
+codex-vault daemon status --json
+```
+
+The Unix socket is private and the daemon verifies client PID/UID/GID using Linux `SO_PEERCRED`.
+This alpha does not yet perform PAM authentication, dedicated-UID execution, encrypted mounts, or
+Codex launch. No password, key, token, or decrypted state is sent over the protocol.
+
 ## Storage
 
 - `CODEX_VAULT_HOME`: encrypted root, default `~/.codex-vault`.
@@ -76,9 +90,9 @@ The launcher invokes the real `codex` executable directly from `PATH`; shell fun
 
 ## Project Status
 
-`v0.1.2` is the maintained prototype line. `v0.2` will add the privileged Linux daemon, PAM authentication, dedicated UID execution, and encrypted filesystem mounts required for hostile-user isolation.
+`v0.1.2` is the maintained patch line. `v0.2.0-alpha.1` starts the Linux daemon protocol while PAM authentication, dedicated UID execution, and encrypted filesystem mounts remain under development.
 
-See [Architecture](docs/ARCHITECTURE.md), [Threat Model](docs/THREAT_MODEL.md), [Roadmap](docs/ROADMAP.md), and [Maintenance Policy](docs/MAINTENANCE.md).
+See [Architecture](docs/ARCHITECTURE.md), [Daemon Protocol](docs/DAEMON_PROTOCOL.md), [Threat Model](docs/THREAT_MODEL.md), [Roadmap](docs/ROADMAP.md), and [Maintenance Policy](docs/MAINTENANCE.md).
 
 ## License
 

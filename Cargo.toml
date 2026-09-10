@@ -1,6 +1,6 @@
 [package]
 name = "codex-vault"
-version = "0.1.2"
+version = "0.2.0-alpha.1"
 edition = "2024"
 rust-version = "1.98"
 description = "Encrypted, multi-user local state isolation for the Codex CLI"
@@ -17,7 +17,7 @@ base64 = "0.23.1"
 clap = { version = "4.6.6", features = ["derive"] }
 fs2 = "0.4.3"
 getrandom = "0.4.3"
-nix = { version = "0.31.3", features = ["process", "signal", "user"] }
+nix = { version = "0.31.3", features = ["process", "signal", "socket", "user"] }
 rpassword = "7.5.4"
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.151"

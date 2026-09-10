@@ -27,6 +27,18 @@ pub enum VaultError {
     #[error("failed to launch Codex: {0}")]
     Launch(String),
 
+    #[error("daemon protocol error: {0}")]
+    Protocol(String),
+
+    #[error("daemon rejected peer UID {0}")]
+    PeerRejected(u32),
+
+    #[error("Codex Vault daemon is already running")]
+    DaemonAlreadyRunning,
+
+    #[error("unsupported platform: {0}")]
+    UnsupportedPlatform(&'static str),
+
     #[error("serialization error: {0}")]
     Serialization(#[from] serde_json::Error),
 

@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.2.0-alpha.1 - 2026-09-10
+
+- Added the `codex-vaultd` foreground Linux daemon and `codex-vault daemon status` client.
+- Added a versioned, 16 KiB-bounded Unix socket protocol with strict JSON schemas.
+- Added Linux `SO_PEERCRED` PID/UID/GID validation and a same-UID default policy.
+- Added private socket permissions, stale-socket recovery, inode-aware cleanup, and graceful signal
+  shutdown.
+- Kept PAM, dedicated UID execution, encrypted mounts, secret transport, and Codex launching
+  disabled behind explicit capability flags.
+- Added Linux integration tests for protocol versions, peer rejection, socket permissions, and
+  stale path handling.
+- Updated GitHub Actions checkout to the Node 24-based v7 release.
+
 ## 0.1.2 - 2026-09-10
 
 - Refused pre-existing private-storage and runtime directories with unsafe permissions instead of

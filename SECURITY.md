@@ -19,6 +19,13 @@ For hostile shared-account deployments, wait for the daemon and dedicated-UID is
 
 The Rust rewrite has not received an independent cryptographic audit. Passing tests and using established primitives are necessary controls, not substitutes for third-party review.
 
+## Version 0.2 Alpha Boundary
+
+The alpha daemon accepts only a status request over a private Linux Unix socket and validates the
+client identity using kernel-provided peer credentials. It does not yet authenticate through PAM,
+change UID, mount encrypted storage, handle secrets, or launch Codex. Running the alpha daemon does
+not improve the `v0.1` same-UID isolation guarantee.
+
 ## Reporting a Vulnerability
 
 Do not open a public issue containing exploit details, credentials, private transcripts, or decrypted data. Until a private security contact is configured, prepare a minimal reproduction and disclose only that a private report is available.

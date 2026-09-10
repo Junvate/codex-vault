@@ -53,4 +53,6 @@ Security fixes take precedence over feature releases. A fix must state:
 
 ## Current Maintained Line
 
-The maintained development line is `0.1.x`. It is a prototype line and does not yet claim hostile same-UID isolation. The next security milestone is `0.2.0`, which introduces the Linux daemon and dedicated-UID execution boundary.
+The maintained stable patch line is `0.1.x`. Active development is on `0.2.0-alpha.x`, which does
+not claim hostile same-UID isolation until PAM, dedicated-UID execution, and encrypted mounts are
+implemented and validated.

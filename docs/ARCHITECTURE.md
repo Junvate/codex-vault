@@ -40,3 +40,14 @@ codex-vault CLI
 ## v0.2 Boundary
 
 The daemon will move authentication, keys, mounts, and process creation into a privileged service. The CLI will become an unprivileged terminal client. Each authenticated session will run under a dedicated UID so people sharing an entry account are no longer treated as the same operating-system principal.
+
+### Alpha 1 Protocol Slice
+
+`src/daemon_protocol.rs` defines a bounded, versioned JSON protocol. `src/daemon.rs` owns private
+Unix socket creation, stale-socket handling, Linux `SO_PEERCRED` verification, and graceful service
+shutdown. `src/bin/codex-vaultd.rs` is the foreground service entry point, suitable for later
+supervision by systemd.
+
+The alpha service exposes only status and capability discovery. It intentionally keeps passwords,
+keys, vault state, PAM, UID transitions, mounts, and child process creation outside the daemon until
+those interfaces have dedicated threat-model and negative-test coverage.

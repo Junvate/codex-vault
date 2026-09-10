@@ -2,11 +2,14 @@ use std::{
     env,
     ffi::OsString,
     io::{self, Write},
+    path::PathBuf,
     process,
 };
 
 use clap::{Parser, Subcommand};
-use codex_vault::{VaultStore, run_codex};
+use codex_vault::{
+    CapabilityState, VaultStore, default_daemon_socket, query_daemon_status, run_codex,
+};
 use zeroize::Zeroizing;
 
 #[derive(Parser)]
@@ -25,6 +28,11 @@ enum Command {
         #[command(subcommand)]
         command: UserCommand,
     },
+    /// Inspect the local Codex Vault daemon.
+    Daemon {
+        #[command(subcommand)]
+        command: DaemonCommand,
+    },
     /// Unlock a user profile and run the real Codex CLI.
     Run {
         #[arg(long)]
@@ -42,6 +50,19 @@ enum UserCommand {
     Passwd { username: String },
     /// List configured application-level users.
     List,
+}
+
+#[derive(Subcommand)]
+enum DaemonCommand {
+    /// Verify the versioned protocol and kernel-authenticated peer identity.
+    Status {
+        /// Absolute Unix socket path.
+        #[arg(long)]
+        socket: Option<PathBuf>,
+        /// Print the structured daemon response as JSON.
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 fn main() {
@@ -105,6 +126,32 @@ fn execute(cli: Cli) -> codex_vault::Result<i32> {
             println!("Updated password for {username}.");
             Ok(0)
         }
+        Command::Daemon {
+            command: DaemonCommand::Status { socket, json },
+        } => {
+            let socket = socket.map_or_else(default_daemon_socket, Ok)?;
+            let status = query_daemon_status(&socket)?;
+            if json {
+                println!("{}", serde_json::to_string_pretty(&status)?);
+            } else {
+                println!("Daemon: reachable");
+                println!("Socket: {}", socket.display());
+                println!("Protocol: {}", status.protocol_version);
+                println!("Daemon version: {}", status.daemon_version);
+                println!("Daemon UID: {}", status.daemon_uid);
+                println!(
+                    "Peer credentials: pid={} uid={} gid={}",
+                    status.peer.pid, status.peer.uid, status.peer.gid
+                );
+                println!(
+                    "Capabilities: peer-credentials=yes pam={} dedicated-uid={} encrypted-mount={}",
+                    capability_label(status.capabilities.pam_authentication),
+                    capability_label(status.capabilities.dedicated_uid),
+                    capability_label(status.capabilities.encrypted_mount)
+                );
+            }
+            Ok(0)
+        }
         Command::Run {
             user,
             codex_arguments,
@@ -116,6 +163,13 @@ fn execute(cli: Cli) -> codex_vault::Result<i32> {
             let password = Zeroizing::new(rpassword::prompt_password("Password: ")?);
             run_codex(&store, &username, password.as_bytes(), &codex_arguments)
         }
+    }
+}
+
+const fn capability_label(state: CapabilityState) -> &'static str {
+    match state {
+        CapabilityState::Enabled => "enabled",
+        CapabilityState::Disabled => "disabled",
     }
 }
 
