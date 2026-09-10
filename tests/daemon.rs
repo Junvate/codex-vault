@@ -2,10 +2,8 @@
 
 use std::{
     fs,
-    os::unix::{
-        fs::{MetadataExt, PermissionsExt},
-        net::UnixStream,
-    },
+    io::ErrorKind,
+    os::unix::{fs::PermissionsExt, net::UnixStream},
     path::Path,
     thread,
     time::Duration,
@@ -106,14 +104,10 @@ fn stale_owned_socket_is_replaced_but_regular_files_are_refused() {
     let socket = run.join("control.sock");
     let stale = std::os::unix::net::UnixListener::bind(&socket).expect("bind stale socket");
     drop(stale);
-    let stale_inode = fs::symlink_metadata(&socket)
-        .expect("stale socket metadata")
-        .ino();
 
     let config = DaemonConfig::for_current_user(Some(&socket)).expect("daemon config");
     let server = spawn_once(config);
-    wait_for_replaced_socket(&socket, stale_inode);
-    query_daemon_status(&socket).expect("query replacement socket");
+    query_status_with_retry(&socket);
     server.join().expect("join server").expect("serve status");
 
     fs::write(&socket, b"do not replace").expect("create regular file");
@@ -163,14 +157,20 @@ fn wait_for_socket(path: &Path) {
     panic!("daemon socket was not created: {}", path.display());
 }
 
-fn wait_for_replaced_socket(path: &Path, stale_inode: u64) {
+fn query_status_with_retry(path: &Path) {
     for _ in 0..200 {
-        if let Ok(metadata) = fs::symlink_metadata(path)
-            && metadata.ino() != stale_inode
-        {
-            return;
+        match query_daemon_status(path) {
+            Ok(_) => return,
+            Err(VaultError::Io(error))
+                if matches!(
+                    error.kind(),
+                    ErrorKind::ConnectionRefused | ErrorKind::NotFound
+                ) =>
+            {
+                thread::sleep(Duration::from_millis(10));
+            }
+            Err(error) => panic!("daemon status query failed: {error}"),
         }
-        thread::sleep(Duration::from_millis(10));
     }
-    panic!("stale daemon socket was not replaced: {}", path.display());
+    panic!("daemon did not replace stale socket: {}", path.display());
 }
