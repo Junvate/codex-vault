@@ -212,6 +212,60 @@ fn storage_permissions_are_private() {
 
 #[cfg(unix)]
 #[test]
+fn initialization_rejects_an_existing_shared_directory_without_changing_it() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let base = tempfile::tempdir().expect("temporary directory");
+    let shared = base.path().join("shared");
+    fs::create_dir(&shared).expect("create shared directory");
+    fs::set_permissions(&shared, fs::Permissions::from_mode(0o755))
+        .expect("set shared permissions");
+    let store = VaultStore::new(&shared);
+
+    assert!(matches!(
+        store.initialize(),
+        Err(VaultError::InvalidConfiguration(_))
+    ));
+    assert_eq!(
+        fs::metadata(&shared)
+            .expect("shared metadata")
+            .permissions()
+            .mode()
+            & 0o777,
+        0o755
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn unlock_rejects_an_existing_shared_runtime_without_changing_it() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let base = tempfile::tempdir().expect("temporary directory");
+    let runtime = base.path().join("shared-runtime");
+    fs::create_dir(&runtime).expect("create runtime");
+    fs::set_permissions(&runtime, fs::Permissions::from_mode(0o755))
+        .expect("set runtime permissions");
+    let store = VaultStore::new(base.path().join("vault")).with_runtime_root(&runtime);
+    let password = b"correct horse battery staple";
+    store.add_user("alice", password).expect("add user");
+
+    assert!(matches!(
+        store.unlock("alice", password),
+        Err(VaultError::InvalidConfiguration(_))
+    ));
+    assert_eq!(
+        fs::metadata(&runtime)
+            .expect("runtime metadata")
+            .permissions()
+            .mode()
+            & 0o777,
+        0o755
+    );
+}
+
+#[cfg(unix)]
+#[test]
 fn unlock_rejects_overly_broad_profile_permissions() {
     use std::os::unix::fs::PermissionsExt;
 

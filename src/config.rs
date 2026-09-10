@@ -48,29 +48,23 @@ pub fn select_runtime_root() -> Result<PathBuf> {
 }
 
 pub fn ensure_private_directory(path: &Path) -> Result<()> {
-    fs::create_dir_all(path)?;
-    let metadata = fs::symlink_metadata(path)?;
-    if !metadata.is_dir() || metadata.file_type().is_symlink() {
-        return Err(VaultError::InvalidConfiguration(format!(
-            "private path is not a real directory: {}",
-            path.display()
-        )));
+    match fs::symlink_metadata(path) {
+        Ok(_) => return validate_private_directory(path),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(error) => return Err(VaultError::Io(error)),
     }
 
     #[cfg(unix)]
     {
-        use std::os::unix::fs::{MetadataExt, PermissionsExt};
+        use std::os::unix::fs::DirBuilderExt;
 
-        if metadata.uid() != geteuid().as_raw() {
-            return Err(VaultError::InvalidConfiguration(format!(
-                "private directory is owned by another UID: {}",
-                path.display()
-            )));
-        }
-        fs::set_permissions(path, fs::Permissions::from_mode(0o700))?;
+        let mut builder = fs::DirBuilder::new();
+        builder.recursive(true).mode(0o700).create(path)?;
     }
+    #[cfg(not(unix))]
+    fs::create_dir_all(path)?;
 
-    Ok(())
+    validate_private_directory(path)
 }
 
 pub fn validate_private_directory(path: &Path) -> Result<()> {

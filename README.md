@@ -76,7 +76,7 @@ The launcher invokes the real `codex` executable directly from `PATH`; shell fun
 
 ## Project Status
 
-`v0.1.1` is the maintained prototype line. `v0.2` will add the privileged Linux daemon, PAM authentication, dedicated UID execution, and encrypted filesystem mounts required for hostile-user isolation.
+`v0.1.2` is the maintained prototype line. `v0.2` will add the privileged Linux daemon, PAM authentication, dedicated UID execution, and encrypted filesystem mounts required for hostile-user isolation.
 
 See [Architecture](docs/ARCHITECTURE.md), [Threat Model](docs/THREAT_MODEL.md), [Roadmap](docs/ROADMAP.md), and [Maintenance Policy](docs/MAINTENANCE.md).
 

@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.1.2 - 2026-09-10
+
+- Refused pre-existing private-storage and runtime directories with unsafe permissions instead of
+  silently changing their mode.
+- Added regression tests proving shared directories remain unchanged after rejection.
+
 ## 0.1.1 - 2026-09-10
 
 - Added atomic password rotation that rewraps the existing per-user data key.
