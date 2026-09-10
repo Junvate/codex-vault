@@ -131,6 +131,53 @@ impl VaultStore {
         Ok(users)
     }
 
+    /// Replaces a user's password by rewrapping the existing random data key.
+    ///
+    /// The encrypted Codex state is not decrypted or rewritten. The profile lock prevents a
+    /// concurrent Codex session from racing with the manifest replacement.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error for failed authentication, concurrent access, unsafe storage, or an atomic
+    /// manifest replacement failure.
+    pub fn rotate_password(
+        &self,
+        username: &str,
+        current_password: &[u8],
+        new_password: &[u8],
+    ) -> Result<()> {
+        validate_username(username)?;
+        validate_password(new_password)?;
+        let user_root = self.user_root(username);
+        validate_private_directory(&user_root).map_err(|_| VaultError::Authentication)?;
+        let lock = acquire_lock(&user_root.join("active.lock"))?;
+
+        let result = (|| {
+            let mut manifest = read_manifest(&user_root)?;
+            if !manifest.username.eq_ignore_ascii_case(username) {
+                return Err(VaultError::Authentication);
+            }
+
+            let current_wrapping_key = derive_key(current_password, &manifest.kdf)
+                .map_err(|_| VaultError::Authentication)?;
+            let data_key = unwrap_data_key(
+                &manifest.wrapped_data_key,
+                &current_wrapping_key,
+                &manifest.associated_data()?,
+            )?;
+
+            manifest.kdf = default_kdf_parameters()?;
+            let new_wrapping_key = derive_key(new_password, &manifest.kdf)?;
+            manifest.wrapped_data_key =
+                wrap_data_key(&data_key, &new_wrapping_key, &manifest.associated_data()?)?;
+            replace_private_json(&user_root.join("manifest.json"), &manifest)
+        })();
+
+        let unlock_result = FileExt::unlock(&lock).map_err(VaultError::Io);
+        result?;
+        unlock_result
+    }
+
     /// Authenticates a user and extracts their encrypted Codex state into a private runtime.
     ///
     /// # Errors
@@ -262,6 +309,23 @@ fn write_private_json(path: &Path, value: &UserManifest) -> Result<()> {
     file.write_all(b"\n")?;
     file.sync_all()?;
     Ok(())
+}
+
+fn replace_private_json(path: &Path, value: &UserManifest) -> Result<()> {
+    let parent = path.parent().ok_or_else(|| {
+        VaultError::InvalidConfiguration("manifest path has no parent directory".into())
+    })?;
+    let temporary = parent.join(format!(".manifest-{}.tmp", Uuid::new_v4()));
+    let result = (|| {
+        write_private_json(&temporary, value)?;
+        fs::rename(&temporary, path)?;
+        File::open(parent)?.sync_all()?;
+        Ok(())
+    })();
+    if result.is_err() {
+        let _ = fs::remove_file(&temporary);
+    }
+    result
 }
 
 fn read_manifest(user_root: &Path) -> Result<UserManifest> {

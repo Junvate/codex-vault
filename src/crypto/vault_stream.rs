@@ -1,4 +1,8 @@
-use std::io::{self, Read, Write};
+use std::{
+    error::Error,
+    fmt,
+    io::{self, Read, Write},
+};
 
 use aes_gcm::{
     Aes256Gcm, Nonce,
@@ -17,8 +21,32 @@ const CHUNK_SIZE: usize = 64 * 1024;
 const DATA_FRAME: u8 = 0;
 const FINAL_FRAME: u8 = 1;
 
+#[derive(Debug)]
+struct IntegrityIoError(&'static str);
+
+impl fmt::Display for IntegrityIoError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(self.0)
+    }
+}
+
+impl Error for IntegrityIoError {}
+
 fn io_integrity(message: &'static str) -> io::Error {
-    io::Error::new(io::ErrorKind::InvalidData, message)
+    io::Error::new(io::ErrorKind::InvalidData, IntegrityIoError(message))
+}
+
+pub(crate) fn map_read_error(error: io::Error) -> VaultError {
+    if let Some(integrity) = error
+        .get_ref()
+        .and_then(|source| source.downcast_ref::<IntegrityIoError>())
+    {
+        return VaultError::Integrity(integrity.0);
+    }
+    if error.kind() == io::ErrorKind::InvalidData {
+        return VaultError::Integrity("encrypted vault or archive data is invalid");
+    }
+    VaultError::Io(error)
 }
 
 fn nonce_bytes(mut seed: [u8; NONCE_SEED_LENGTH], sequence: u32) -> Result<[u8; 12]> {
@@ -199,7 +227,7 @@ impl<R: Read> VaultReader<R> {
     }
 
     pub fn verify_finished(mut self) -> Result<()> {
-        io::copy(&mut self, &mut io::sink())?;
+        io::copy(&mut self, &mut io::sink()).map_err(map_read_error)?;
         if !self.finalized {
             return Err(VaultError::Integrity("encrypted vault is truncated"));
         }
@@ -291,7 +319,7 @@ impl<R: Read> Read for VaultReader<R> {
 mod tests {
     use std::io::{Cursor, Read, Write};
 
-    use super::{VaultReader, VaultWriter};
+    use super::{FILE_HEADER_LENGTH, FRAME_HEADER_LENGTH, TAG_LENGTH, VaultReader, VaultWriter};
 
     fn encrypt(plaintext: &[u8], key: &[u8; 32]) -> Vec<u8> {
         let mut writer = VaultWriter::new(Vec::new(), key).expect("writer");
@@ -330,5 +358,45 @@ mod tests {
         let mut trailing = ciphertext;
         trailing.push(0);
         assert!(decrypt(&trailing, &key).is_err());
+    }
+
+    #[test]
+    fn rejects_reordered_authenticated_frames() {
+        let key = [11_u8; 32];
+        let plaintext = vec![42_u8; 64 * 1024 * 2 + 17];
+        let ciphertext = encrypt(&plaintext, &key);
+        let frames = frame_ranges(&ciphertext);
+        assert!(
+            frames.len() >= 3,
+            "expected two data frames and a final frame"
+        );
+
+        let mut reordered = ciphertext[..FILE_HEADER_LENGTH].to_vec();
+        reordered.extend_from_slice(&ciphertext[frames[1].clone()]);
+        reordered.extend_from_slice(&ciphertext[frames[0].clone()]);
+        for frame in &frames[2..] {
+            reordered.extend_from_slice(&ciphertext[frame.clone()]);
+        }
+
+        let error = decrypt(&reordered, &key).expect_err("reordered frames must fail");
+        assert!(error.to_string().contains("frame order is invalid"));
+    }
+
+    fn frame_ranges(ciphertext: &[u8]) -> Vec<std::ops::Range<usize>> {
+        let mut ranges = Vec::new();
+        let mut offset = FILE_HEADER_LENGTH;
+        while offset < ciphertext.len() {
+            let length_offset = offset + 5;
+            let length = u32::from_be_bytes(
+                ciphertext[length_offset..length_offset + 4]
+                    .try_into()
+                    .expect("frame length"),
+            ) as usize;
+            let end = offset + FRAME_HEADER_LENGTH + length + TAG_LENGTH;
+            ranges.push(offset..end);
+            offset = end;
+        }
+        assert_eq!(offset, ciphertext.len());
+        ranges
     }
 }

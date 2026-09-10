@@ -70,6 +70,72 @@ fn users_are_isolated_and_locked_against_concurrent_access() {
 }
 
 #[test]
+fn password_rotation_rewraps_the_key_without_rewriting_state() {
+    let base = tempfile::tempdir().expect("temporary directory");
+    let store = store_at(base.path());
+    let old_password = b"old password is long enough";
+    let new_password = b"new password is also long enough";
+    store.add_user("alice", old_password).expect("add alice");
+
+    let vault = store.unlock("alice", old_password).expect("unlock alice");
+    fs::write(vault.codex_home().join("owner.txt"), b"alice").expect("write owner");
+    vault.close().expect("close alice");
+    let state_path = base.path().join("vault/users/alice/state.cvlt");
+    let state_before = fs::read(&state_path).expect("read original state");
+
+    assert!(matches!(
+        store.rotate_password("alice", b"incorrect password", new_password),
+        Err(VaultError::Authentication)
+    ));
+    assert_eq!(
+        fs::read(&state_path).expect("read state after failed rotation"),
+        state_before
+    );
+    store
+        .unlock("alice", old_password)
+        .expect("old password remains valid after failed rotation")
+        .close()
+        .expect("close after failed rotation");
+    let state_before_successful_rotation =
+        fs::read(&state_path).expect("read state before successful rotation");
+
+    store
+        .rotate_password("alice", old_password, new_password)
+        .expect("rotate password");
+    assert_eq!(
+        fs::read(&state_path).expect("read state after rotation"),
+        state_before_successful_rotation
+    );
+    assert!(matches!(
+        store.unlock("alice", old_password),
+        Err(VaultError::Authentication)
+    ));
+    let reopened = store
+        .unlock("alice", new_password)
+        .expect("new password works");
+    assert_eq!(
+        fs::read(reopened.codex_home().join("owner.txt")).expect("read owner"),
+        b"alice"
+    );
+    reopened.close().expect("close reopened vault");
+}
+
+#[test]
+fn password_rotation_rejects_an_active_profile() {
+    let base = tempfile::tempdir().expect("temporary directory");
+    let store = store_at(base.path());
+    let password = b"correct horse battery staple";
+    store.add_user("alice", password).expect("add user");
+    let vault = store.unlock("alice", password).expect("unlock");
+
+    assert!(matches!(
+        store.rotate_password("alice", password, b"replacement password is long"),
+        Err(VaultError::Locked)
+    ));
+    vault.close().expect("close");
+}
+
+#[test]
 fn manifest_identity_tampering_invalidates_the_wrapped_key() {
     let base = tempfile::tempdir().expect("temporary directory");
     let store = store_at(base.path());
@@ -184,6 +250,43 @@ fn lock_file_symlink_is_rejected_without_modifying_its_target() {
         fs::read(victim).expect("read victim"),
         b"must remain intact"
     );
+}
+
+#[test]
+fn stale_lock_contents_do_not_block_recovery() {
+    let base = tempfile::tempdir().expect("temporary directory");
+    let store = store_at(base.path());
+    let password = b"correct horse battery staple";
+    store.add_user("alice", password).expect("add user");
+    fs::write(
+        base.path().join("vault/users/alice/active.lock"),
+        b"{\"pid\":999999999}\n",
+    )
+    .expect("write stale lock contents");
+
+    store
+        .unlock("alice", password)
+        .expect("OS lock, not stale contents, controls access")
+        .close()
+        .expect("close");
+}
+
+#[test]
+fn encrypted_state_failures_are_reported_as_integrity_errors() {
+    let base = tempfile::tempdir().expect("temporary directory");
+    let store = store_at(base.path());
+    let password = b"correct horse battery staple";
+    store.add_user("alice", password).expect("add user");
+    let state_path = base.path().join("vault/users/alice/state.cvlt");
+    let mut state = fs::read(&state_path).expect("read state");
+    let index = state.len() / 2;
+    state[index] ^= 1;
+    fs::write(&state_path, state).expect("tamper state");
+
+    assert!(matches!(
+        store.unlock("alice", password),
+        Err(VaultError::Integrity(_))
+    ));
 }
 
 fn contains(haystack: &[u8], needle: &[u8]) -> bool {

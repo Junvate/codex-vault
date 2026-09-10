@@ -12,11 +12,12 @@ Last updated: 2026-09-10.
 - [x] Authenticated streaming vault format.
 - [x] System file locks and automatic resealing after Codex exits.
 - [x] Tests for tampering, truncation, user isolation, permissions, and process launch.
-- [ ] Password rotation by rewrapping the data key.
+- [x] Password rotation by rewrapping the data key.
 - [ ] Stale plaintext runtime scanner and recovery command.
 
 ## v0.2: Daemon And OS Isolation
 
+- [ ] Versioned, authenticated Unix-socket protocol and peer-credential checks.
 - Background `codex-vaultd` service.
 - Dedicated UID for every active user session.
 - PAM authentication.

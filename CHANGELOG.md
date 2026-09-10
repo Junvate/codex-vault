@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.1.1 - 2026-09-10
+
+- Added atomic password rotation that rewraps the existing per-user data key.
+- Preserved encrypted state bytes during password changes and blocked rotation while a profile is active.
+- Classified authenticated-stream failures as vault integrity errors at the CLI boundary.
+- Added regression coverage for authenticated frame reordering, archive path traversal, stale lock contents, and password rotation rollback.
+- Added the independent Ubuntu 22.04 validation report for v0.1.0.
+
 ## 0.1.0 - 2026-09-10
 
 - Replaced the initial TypeScript design prototype with a Rust CLI and reusable Rust library.

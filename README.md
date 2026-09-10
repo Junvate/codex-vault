@@ -44,6 +44,7 @@ cargo install --path .
 ```bash
 codex-vault init
 codex-vault user add alice
+codex-vault user passwd alice
 codex-vault user list
 
 codex-vault run --user alice --
@@ -52,6 +53,9 @@ codex-vault run --user alice -- resume --last
 ```
 
 Set `CODEX_VAULT_USER=alice` to skip the username prompt. The password is still requested for every launch.
+
+Password rotation creates a fresh Argon2id salt and AES-GCM wrapping nonce, then atomically replaces
+the manifest. The random data key and encrypted `state.cvlt` remain unchanged.
 
 To keep the original command shape, add this shell function after installing `codex-vault`:
 
@@ -72,7 +76,7 @@ The launcher invokes the real `codex` executable directly from `PATH`; shell fun
 
 ## Project Status
 
-`v0.1` is the maintained prototype line. `v0.2` will add the privileged Linux daemon, PAM authentication, dedicated UID execution, and encrypted filesystem mounts required for hostile-user isolation.
+`v0.1.1` is the maintained prototype line. `v0.2` will add the privileged Linux daemon, PAM authentication, dedicated UID execution, and encrypted filesystem mounts required for hostile-user isolation.
 
 See [Architecture](docs/ARCHITECTURE.md), [Threat Model](docs/THREAT_MODEL.md), [Roadmap](docs/ROADMAP.md), and [Maintenance Policy](docs/MAINTENANCE.md).
 

@@ -38,6 +38,8 @@ enum Command {
 enum UserCommand {
     /// Create an encrypted user profile.
     Add { username: String },
+    /// Replace a user's password without rewriting encrypted Codex state.
+    Passwd { username: String },
     /// List configured application-level users.
     List,
 }
@@ -85,6 +87,22 @@ fn execute(cli: Cli) -> codex_vault::Result<i32> {
                     println!("{user}");
                 }
             }
+            Ok(0)
+        }
+        Command::User {
+            command: UserCommand::Passwd { username },
+        } => {
+            let current = Zeroizing::new(rpassword::prompt_password("Current password: ")?);
+            let new_password = Zeroizing::new(rpassword::prompt_password("New password: ")?);
+            let confirmation =
+                Zeroizing::new(rpassword::prompt_password("Confirm new password: ")?);
+            if new_password.as_bytes() != confirmation.as_bytes() {
+                return Err(codex_vault::VaultError::InvalidConfiguration(
+                    "passwords do not match".into(),
+                ));
+            }
+            store.rotate_password(&username, current.as_bytes(), new_password.as_bytes())?;
+            println!("Updated password for {username}.");
             Ok(0)
         }
         Command::Run {
