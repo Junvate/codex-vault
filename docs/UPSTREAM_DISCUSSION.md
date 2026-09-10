@@ -1,6 +1,6 @@
 # Draft Comment For openai/codex #4432
 
-Not submitted. Recheck issue status and contribution policy before posting.
+Not submitted. Policy and issue state rechecked on 2026-09-11; recheck again before posting.
 
 ## External Encrypted State Launchers And Profile Boundaries
 
@@ -21,11 +21,10 @@ may change keyring lookup identity. We have not reproduced this with real OAuth 
 and are not reporting it as a vulnerability or claiming an upstream defect.
 
 Would maintainers prefer a documented stable-path requirement, guidance on credential backend
-selection for external launchers, or another supported approach? Our next validation step is a
-pinned-release matrix covering resume and additional credential backends using only disposable
-state. An initial macOS test against codex-cli 0.153.4 passed file-credential recognition across
-runtime relocation, a second profile with no credentials, and persisted logout. It used a
-fictional API key and did not authenticate to OpenAI or exercise real resume behavior.
+selection for external launchers, or another supported approach? Our pinned-release tests against
+codex-cli 0.153.4 now pass on Linux and macOS for file-credential recognition across runtime
+relocation, a second profile with no credentials, and persisted logout. These use a fictional
+API key and do not authenticate to OpenAI. Keyring, auto, and MCP remain unverified.
 
 We also reproduced a resume failure in our integration when restoring CODEX_HOME at a new random
 runtime path: Codex 0.153.4 reported no rollout found for the selected thread. Keeping our runtime
@@ -33,6 +32,10 @@ path stable fixed the regression. A loopback-only model fixture confirmed that A
 original thread with prior history, while Bob's resume --last --all did not include Alice's prompt.
 This is evidence for documenting path-stability expectations, not a claim that Codex violates an
 existing contract. Migration of old paths and hostile same-UID access remain out of scope of this test.
+
+The extended test also rejects Bob's explicit Alice thread ID without a provider request and
+successfully resumes that ID as Alice. See the [passing CI run](https://github.com/Junvate/codex-vault/actions/runs/34541080564)
+and [pinned regression source](https://github.com/Junvate/codex-vault/blob/ba3c17028016745af3102ebf706ac0997eea0ed3/tests/real_codex.rs).
 
 We recognize the current policy does not accept external PRs. This is a design discussion,
 not a request to merge the launcher or to add shared-UID password isolation to Codex.

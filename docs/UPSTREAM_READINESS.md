@@ -1,11 +1,11 @@
 # Upstream Contribution Readiness
 
-Checked on 2026-09-10 against openai/codex commit
-`b348fc26674189f758d5941cdab3f78f258b2aa7`.
+Policy rechecked on 2026-09-11 against openai/codex commit
+`1b83e5cdf99889e72fbf3f92d9848fdf31de652e`.
 
 ## Contribution Gate
 
-The [upstream contribution policy](https://github.com/openai/codex/blob/b348fc26674189f758d5941cdab3f78f258b2aa7/docs/contributing.md)
+The [upstream contribution policy](https://github.com/openai/codex/blob/1b83e5cdf99889e72fbf3f92d9848fdf31de652e/docs/contributing.md)
 does not accept external code contributions or pull requests. It accepts issue reports,
 reproductions, analysis, and feature requests. Code readiness cannot override that policy.
 Do not open a PR unless the policy changes or maintainers explicitly invite one.
@@ -66,3 +66,6 @@ gap for those specific scenarios, not the remaining authentication or security g
 The resume regression additionally checks explicit foreign-thread rejection with no provider
 request, and explicit owner-thread restoration. This exercises the selected profile while Alice
 is sealed; it does not prove isolation from hostile same-UID access to an active runtime.
+
+See [the delivery audit](UPSTREAM_REVIEW_PACKET.md) for requirement-by-requirement status and
+the held PR outline. Neither an upstream patch approval nor complete project readiness is claimed.
