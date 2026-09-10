@@ -90,6 +90,10 @@ Codex launch. No password, key, token, or decrypted state is sent over the proto
 
 ## Project Status
 
+Upstream contribution work is tracked in [Upstream Readiness](docs/UPSTREAM_READINESS.md).
+As checked on 2026-09-10, Codex accepts issue discussions but not external PRs. A discussion
+draft is available; no upstream PR or issue has been submitted by this project in this iteration.
+
 `v0.1.2` is the maintained patch line. `v0.2.0-alpha.1` starts the Linux daemon protocol while PAM authentication, dedicated UID execution, and encrypted filesystem mounts remain under development.
 
 See [Architecture](docs/ARCHITECTURE.md), [Daemon Protocol](docs/DAEMON_PROTOCOL.md), [Threat Model](docs/THREAT_MODEL.md), [Roadmap](docs/ROADMAP.md), and [Maintenance Policy](docs/MAINTENANCE.md).
