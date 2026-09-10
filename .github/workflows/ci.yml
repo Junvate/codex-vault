@@ -8,6 +8,49 @@ permissions:
   contents: read
 
 jobs:
+  real-codex:
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+            sha256: f479424eca092484dc40d87ae28c44f4cc40234a60045d6131e493800d814a30
+          - os: macos-14
+            target: aarch64-apple-darwin
+            sha256: 8cf911ea676523bfb2121ec561848d2aba564890ad536db4d8a3353f2b9850b1
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - run: rustup show
+      - name: Download and verify pinned Codex archive
+        shell: bash
+        env:
+          CODEX_TARGET: ${{ matrix.target }}
+          ARCHIVE_SHA256: ${{ matrix.sha256 }}
+        run: |
+          set -euo pipefail
+          directory="$(mktemp -d "$RUNNER_TEMP/codex-compat.XXXXXX")"
+          archive="codex-$CODEX_TARGET.tar.gz"
+          curl --fail --location --retry 3 --max-time 180 --proto '=https' --proto-redir '=https' \
+            "https://github.com/openai/codex/releases/download/rust-v0.153.4/$archive" \
+            --output "$directory/$archive"
+          cd "$directory"
+          printf '%s  %s\n' "$ARCHIVE_SHA256" "$archive" | shasum -a 256 --check
+          tar -xzf "$archive" "codex-$CODEX_TARGET"
+          test -f "codex-$CODEX_TARGET"
+          test ! -L "codex-$CODEX_TARGET"
+          chmod 700 "codex-$CODEX_TARGET"
+          printf 'CODEX_VAULT_TEST_CODEX=%s/codex-%s\n' "$directory" "$CODEX_TARGET" >> "$GITHUB_ENV"
+      - name: Verify real credential persistence and resume isolation
+        timeout-minutes: 5
+        env:
+          CODEX_VAULT_TEST_CODEX_VERSION: codex-cli 0.153.4
+        run: cargo test --test real_codex --locked -- --ignored --nocapture --test-threads=1
+
   verify:
     strategy:
       fail-fast: false
