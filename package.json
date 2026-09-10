@@ -1,0 +1,37 @@
+{
+  "name": "codex-vault",
+  "version": "0.1.0",
+  "description": "Encrypted, multi-user local state isolation for the Codex CLI.",
+  "type": "module",
+  "private": true,
+  "bin": {
+    "codex-vault": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "docs",
+    "README.md",
+    "SECURITY.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json && chmod +x dist/cli.js",
+    "check": "tsc -p tsconfig.json --noEmit",
+    "pretest": "npm run build",
+    "test": "node --test tests/*.test.mjs",
+    "verify": "npm run check && npm test"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@node-rs/argon2": "2.2.0",
+    "tar": "7.5.22"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.2",
+    "typescript": "7.0.2"
+  },
+  "license": "Apache-2.0"
+}
