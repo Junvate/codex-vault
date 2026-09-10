@@ -4,6 +4,9 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+- Added Linux and macOS real-Codex compatibility CI using version 0.153.4 release archives with
+  pinned SHA-256 verification; both file-auth and exec/resume tests run explicitly without credentials.
+
 - Made explicit runtime overrides fail closed instead of silently falling back to another directory.
   Environment and library overrides require absolute paths and share canonical private-root checks.
 - Added isolated-process coverage for environment selection and regressions for invalid paths,

@@ -58,3 +58,7 @@ Current status: discussion draft, launcher regressions, real-Codex file-auth per
 [exec/resume evidence](../validation/macos-codex-0.153.4-resume.md) available;
 full compatibility matrix and active-session isolation incomplete;
 external PR route unavailable.
+
+Pinned real-Codex file-auth and exec/resume tests also passed in both Linux and macOS CI;
+see [cross-platform evidence](../validation/ci-codex-0.153.4.md). This closes only the platform
+gap for those specific scenarios, not the remaining authentication or security gates above.
