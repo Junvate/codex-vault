@@ -28,6 +28,10 @@ protects mutually hostile processes sharing a Unix UID.
 - Local runner tests exercise mock process argument fidelity, application-user state separation,
   nonzero exit handling, spawn failure, resealing, runtime removal, and lock release.
 - These tests do not exercise the real Codex resume database, OAuth, keyring, MCP, or subprocesses.
+- A separate opt-in real-binary test verifies file-credential recognition across runtime relocation,
+  Bob's empty credential state, and persisted logout using fictional credentials. The macOS result
+  and artifact digest are in [the compatibility report](../validation/macos-codex-0.153.4-file-auth.md).
+  This is not real authentication, a resume test, or a test of the production launcher path.
 - Upstream login/src/auth/storage.rs stores file credentials under CODEX_HOME/auth.json.
   Its compute_store_key hashes the canonical CODEX_HOME path. Vault uses a new runtime path
   on unlock. Inference: direct-keyring credential lookup may not persist across Vault launches.
@@ -50,5 +54,6 @@ protects mutually hostile processes sharing a Unix UID.
    migration behavior, failure handling, and test commands. Signing and external security review
    remain separate release gates.
 
-Current status: discussion draft and launcher regression evidence available; real-Codex
-compatibility matrix and active-session isolation incomplete; external PR route unavailable.
+Current status: discussion draft, launcher regressions, and real-Codex file-auth persistence
+evidence available; full compatibility matrix and active-session isolation incomplete;
+external PR route unavailable.

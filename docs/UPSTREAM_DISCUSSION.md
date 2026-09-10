@@ -22,8 +22,10 @@ and are not reporting it as a vulnerability or claiming an upstream defect.
 
 Would maintainers prefer a documented stable-path requirement, guidance on credential backend
 selection for external launchers, or another supported approach? Our next validation step is a
-pinned-release matrix covering two profiles, repeated launches, resume, and credential backends
-using only disposable state.
+pinned-release matrix covering resume and additional credential backends using only disposable
+state. An initial macOS test against codex-cli 0.153.4 passed file-credential recognition across
+runtime relocation, a second profile with no credentials, and persisted logout. It used a
+fictional API key and did not authenticate to OpenAI or exercise real resume behavior.
 
 We recognize the current policy does not accept external PRs. This is a design discussion,
 not a request to merge the launcher or to add shared-UID password isolation to Codex.
