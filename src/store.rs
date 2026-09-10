@@ -212,8 +212,17 @@ impl VaultStore {
                 None => select_runtime_root()?,
             };
             let runtime = tempfile::Builder::new()
-                .prefix(&format!("{}-", manifest.id))
-                .tempdir_in(runtime_root)?;
+                // Codex persists absolute rollout paths; keep this name stable across unlocks.
+                // TempDir still creates exclusively and refuses any pre-existing runtime.
+                .prefix(
+                    &Uuid::parse_str(&manifest.id)
+                        .map_err(|_| {
+                            VaultError::InvalidConfiguration("invalid profile UUID".into())
+                        })?
+                        .to_string(),
+                )
+                .rand_bytes(0)
+                .tempdir_in(fs::canonicalize(runtime_root)?)?;
             let codex_home = runtime.path().join("codex-home");
             ensure_private_directory(&codex_home)?;
             unseal_directory(&user_root.join("state.cvlt"), &codex_home, &data_key)?;
@@ -266,17 +275,18 @@ impl UnlockedVault {
         &self.codex_home
     }
 
-    /// Reseals the runtime state, releases the lock, and removes the temporary directory.
+    /// Reseals the runtime state, removes the temporary directory, then releases the lock.
     ///
     /// # Errors
     ///
-    /// Returns an error when resealing or releasing the file lock fails. The temporary directory is
-    /// still removed to avoid leaving plaintext behind.
+    /// Returns an error when resealing, cleanup, or releasing the file lock fails. Cleanup is
+    /// attempted even when resealing fails; cleanup failures must not be treated as a clean lock.
     pub fn close(self) -> Result<()> {
         let seal_result = seal_directory(&self.codex_home, &self.state_path, &self.data_key);
+        let cleanup_result = self.runtime.close().map_err(VaultError::Io);
         let unlock_result = FileExt::unlock(&self.lock).map_err(VaultError::Io);
-        drop(self.runtime);
         seal_result?;
+        cleanup_result?;
         unlock_result
     }
 }

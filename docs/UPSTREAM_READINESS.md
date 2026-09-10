@@ -33,8 +33,8 @@ protects mutually hostile processes sharing a Unix UID.
   and artifact digest are in [the compatibility report](../validation/macos-codex-0.153.4-file-auth.md).
   This is not real authentication, a resume test, or a test of the production launcher path.
 - Upstream login/src/auth/storage.rs stores file credentials under CODEX_HOME/auth.json.
-  Its compute_store_key hashes the canonical CODEX_HOME path. Vault uses a new runtime path
-  on unlock. Inference: direct-keyring credential lookup may not persist across Vault launches.
+  Its compute_store_key hashes the canonical CODEX_HOME path. Vault now uses a stable runtime path
+  under an unchanged canonical runtime root. Inference: relocating that root may change keyring lookup.
   This is a compatibility hypothesis, not a reproduced upstream bug or security finding.
 - CODEX_HOME does not constrain files written elsewhere, inherited credentials, network access,
   shared workspaces, host administrators, or same-UID process access.
@@ -54,6 +54,7 @@ protects mutually hostile processes sharing a Unix UID.
    migration behavior, failure handling, and test commands. Signing and external security review
    remain separate release gates.
 
-Current status: discussion draft, launcher regressions, and real-Codex file-auth persistence
-evidence available; full compatibility matrix and active-session isolation incomplete;
+Current status: discussion draft, launcher regressions, real-Codex file-auth persistence, and
+[exec/resume evidence](../validation/macos-codex-0.153.4-resume.md) available;
+full compatibility matrix and active-session isolation incomplete;
 external PR route unavailable.

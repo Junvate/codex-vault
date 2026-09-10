@@ -10,6 +10,8 @@ use std::{
 
 use codex_vault::VaultStore;
 
+mod support;
+
 // Opt-in: require a native binary, never a shell wrapper or the user's normal Codex home.
 #[test]
 #[ignore = "requires an explicitly selected native Codex binary and exact version"]
@@ -55,6 +57,8 @@ fn file_auth_survives_runtime_relocation_and_logout_is_persisted() {
     assert!(output.contains("Not logged in"), "{output}");
     bob.close().expect("seal bob");
 
+    let relocated_runtime = base.path().join("relocated-runtime");
+    let store = VaultStore::new(base.path().join("vault")).with_runtime_root(&relocated_runtime);
     let alice = store.unlock("alice", password).expect("reopen alice");
     assert_ne!(alice.codex_home(), first_path);
     let (code, output) = invoke(&binary, &home, alice.codex_home(), &["login", "status"]);
@@ -73,6 +77,128 @@ fn file_auth_survives_runtime_relocation_and_logout_is_persisted() {
     assert!(output.contains("Not logged in"), "{output}");
     alice.close().expect("seal empty state");
     assert_eq!(fs::read_dir(&runtime).expect("runtime").count(), 0);
+    assert_eq!(
+        fs::read_dir(&relocated_runtime)
+            .expect("relocated runtime")
+            .count(),
+        0
+    );
+}
+
+#[test]
+#[ignore = "requires an explicitly selected native Codex binary and exact version"]
+fn real_resume_uses_only_the_unlocked_profile_history() {
+    let binary = PathBuf::from(env::var_os("CODEX_VAULT_TEST_CODEX").expect("binary path"));
+    assert!(binary.is_absolute() && binary.is_file());
+    let version = env::var("CODEX_VAULT_TEST_CODEX_VERSION").expect("expected full version");
+    let base = tempfile::tempdir().expect("temporary directory");
+    let home = base.path().join("home");
+    fs::create_dir(&home).expect("create home");
+    let runtime = base.path().join("runtime");
+    let store = VaultStore::new(base.path().join("vault")).with_runtime_root(&runtime);
+    let password = b"disposable test password only";
+    let server = support::LocalResponses::start();
+    for username in ["alice", "bob"] {
+        store.add_user(username, password).expect("create profile");
+        let profile = store.unlock(username, password).expect("unlock profile");
+        fs::write(profile.codex_home().join("config.toml"), format!(
+            "model = \"fixture-model\"\nmodel_provider = \"fixture\"\nsandbox_mode = \"read-only\"\n[model_providers.fixture]\nname = \"Local fixture\"\nbase_url = \"{}\"\nwire_api = \"responses\"\nrequires_openai_auth = false\n", server.url()
+        )).expect("write fixture-only configuration");
+        profile.close().expect("seal configuration");
+    }
+
+    let alice = store.unlock("alice", password).expect("unlock alice");
+    let (code, output) = invoke(&binary, &home, alice.codex_home(), &["--version"]);
+    assert_eq!(code, 0, "{output}");
+    assert_eq!(output.trim(), version);
+    let first_path = alice.codex_home().to_path_buf();
+    let (code, output) = invoke(
+        &binary,
+        &home,
+        alice.codex_home(),
+        &[
+            "exec",
+            "--skip-git-repo-check",
+            "--json",
+            "alice-private-marker-18739",
+        ],
+    );
+    assert_eq!(code, 0, "{output}");
+    let alice_thread = thread_id(&output);
+    assert!(output.contains("fixture-reply"), "{output}");
+    alice.close().expect("seal first turn");
+    assert!(!first_path.exists());
+    let initial = server.take_requests();
+    assert_eq!(initial.len(), 1);
+    assert!(
+        initial[0]
+            .to_string()
+            .contains("alice-private-marker-18739")
+    );
+
+    let bob = store.unlock("bob", password).expect("unlock bob");
+    let (code, output) = invoke(
+        &binary,
+        &home,
+        bob.codex_home(),
+        &[
+            "exec",
+            "resume",
+            "--last",
+            "--all",
+            "--skip-git-repo-check",
+            "--json",
+            "bob-public-marker-24198",
+        ],
+    );
+    assert_eq!(code, 0, "{output}");
+    assert_ne!(thread_id(&output), alice_thread);
+    bob.close().expect("seal bob");
+    let requests = server.take_requests();
+    assert_eq!(requests.len(), 1);
+    assert!(requests[0].to_string().contains("bob-public-marker-24198"));
+    assert!(
+        !requests[0]
+            .to_string()
+            .contains("alice-private-marker-18739")
+    );
+
+    let alice = store.unlock("alice", password).expect("reopen alice");
+    assert_eq!(alice.codex_home(), first_path);
+    let (code, output) = invoke(
+        &binary,
+        &home,
+        alice.codex_home(),
+        &[
+            "exec",
+            "resume",
+            "--last",
+            "--all",
+            "--skip-git-repo-check",
+            "--json",
+            "alice-followup-marker-95310",
+        ],
+    );
+    assert_eq!(code, 0, "{output}");
+    assert_eq!(thread_id(&output), alice_thread);
+    alice.close().expect("seal resumed turn");
+    let requests = server.take_requests();
+    assert_eq!(requests.len(), 1);
+    let body = requests[0].to_string();
+    assert!(body.contains("alice-private-marker-18739"));
+    assert!(body.contains("alice-followup-marker-95310"));
+    assert!(body.contains("fixture-reply"));
+    assert!(!body.contains("bob-public-marker-24198"));
+    assert_eq!(fs::read_dir(&runtime).expect("runtime").count(), 0);
+}
+
+fn thread_id(output: &str) -> String {
+    output
+        .lines()
+        .filter_map(|line| serde_json::from_str::<serde_json::Value>(line).ok())
+        .find(|value| value["type"] == "thread.started")
+        .and_then(|value| value["thread_id"].as_str().map(str::to_owned))
+        .unwrap_or_else(|| panic!("missing thread.started event: {output}"))
 }
 
 fn invoke(binary: &Path, home: &Path, codex_home: &Path, arguments: &[&str]) -> (i32, String) {

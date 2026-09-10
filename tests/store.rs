@@ -7,6 +7,91 @@ fn store_at(base: &Path) -> VaultStore {
 }
 
 #[test]
+fn runtime_path_is_stable_private_and_removed_between_unlocks() {
+    let base = tempfile::tempdir().expect("temporary directory");
+    let store = store_at(base.path());
+    let password = b"correct horse battery staple";
+    store.add_user("alice", password).expect("add alice");
+    store.add_user("bob", password).expect("add bob");
+    let alice = store.unlock("alice", password).expect("unlock alice");
+    let path = alice.codex_home().to_path_buf();
+    assert!(path.is_absolute());
+    let bob = store.unlock("bob", password).expect("unlock bob");
+    assert_ne!(path, bob.codex_home());
+    bob.close().expect("close bob");
+    alice.close().expect("close alice");
+    assert!(!path.parent().expect("runtime directory").exists());
+    let alice = store.unlock("alice", password).expect("reopen alice");
+    assert_eq!(alice.codex_home(), path);
+    alice.close().expect("close alice again");
+}
+
+#[cfg(unix)]
+#[test]
+fn preexisting_runtime_paths_are_never_reused_or_removed() {
+    use std::os::unix::{fs::PermissionsExt, fs::symlink};
+
+    let base = tempfile::tempdir().expect("temporary directory");
+    let store = store_at(base.path());
+    let password = b"correct horse battery staple";
+    store.add_user("alice", password).expect("add alice");
+    let alice = store.unlock("alice", password).expect("unlock alice");
+    let runtime = alice.codex_home().parent().expect("runtime").to_path_buf();
+    alice.close().expect("close alice");
+    let state_path = base.path().join("vault/users/alice/state.cvlt");
+    let encrypted = fs::read(&state_path).expect("encrypted state");
+    let target = base.path().join("symlink-target");
+    fs::create_dir(&target).expect("target directory");
+    fs::write(target.join("marker"), b"keep target").expect("target marker");
+    for kind in ["directory", "file", "symlink"] {
+        match kind {
+            "directory" => {
+                fs::create_dir(&runtime).expect("stale directory");
+                fs::set_permissions(&runtime, fs::Permissions::from_mode(0o700))
+                    .expect("permissions");
+                fs::write(runtime.join("marker"), b"keep stale plaintext").expect("stale marker");
+            }
+            "file" => fs::write(&runtime, b"keep stale file").expect("stale file"),
+            _ => symlink(&target, &runtime).expect("stale symlink"),
+        }
+        assert!(
+            store.unlock("alice", password).is_err(),
+            "must reject {kind}"
+        );
+        assert_eq!(
+            fs::read(&state_path).expect("unchanged ciphertext"),
+            encrypted
+        );
+        match kind {
+            "directory" => {
+                assert_eq!(
+                    fs::read(runtime.join("marker")).expect("stale marker"),
+                    b"keep stale plaintext"
+                );
+                fs::remove_dir_all(&runtime).expect("remove test directory");
+            }
+            "file" => {
+                assert_eq!(fs::read(&runtime).expect("stale file"), b"keep stale file");
+                fs::remove_file(&runtime).expect("remove test file");
+            }
+            _ => {
+                assert_eq!(fs::read_link(&runtime).expect("preserved symlink"), target);
+                fs::remove_file(&runtime).expect("remove test symlink");
+            }
+        }
+    }
+    assert_eq!(
+        fs::read(target.join("marker")).expect("target"),
+        b"keep target"
+    );
+    store
+        .unlock("alice", password)
+        .expect("lock released after rejections")
+        .close()
+        .expect("close");
+}
+
+#[test]
 fn state_is_encrypted_at_rest_and_reopens() {
     let base = tempfile::tempdir().expect("temporary directory");
     let store = store_at(base.path());

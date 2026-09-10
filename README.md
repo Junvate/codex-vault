@@ -83,6 +83,13 @@ Codex launch. No password, key, token, or decrypted state is sent over the proto
 
 ## Storage
 
+Runtime paths are stable per profile UUID under the same canonical runtime root. This is required
+for Codex's persisted session references; normal close still removes the entire plaintext runtime.
+An existing runtime directory, file, or symlink is refused, never overwritten or auto-deleted.
+After a crash, preserve and inspect leftovers before recovery. Changing the runtime root or
+upgrading a profile created with random runtime paths can leave older Codex session references
+unresolvable. Automatic migration is not implemented; keep an encrypted backup before upgrading.
+
 - `CODEX_VAULT_HOME`: encrypted root, default `~/.codex-vault`.
 - `CODEX_VAULT_RUNTIME_DIR`: private plaintext runtime override.
 - `XDG_RUNTIME_DIR`: preferred runtime on Linux when no override is set.

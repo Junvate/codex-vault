@@ -27,5 +27,12 @@ state. An initial macOS test against codex-cli 0.153.4 passed file-credential re
 runtime relocation, a second profile with no credentials, and persisted logout. It used a
 fictional API key and did not authenticate to OpenAI or exercise real resume behavior.
 
+We also reproduced a resume failure in our integration when restoring CODEX_HOME at a new random
+runtime path: Codex 0.153.4 reported no rollout found for the selected thread. Keeping our runtime
+path stable fixed the regression. A loopback-only model fixture confirmed that Alice resumed her
+original thread with prior history, while Bob's resume --last --all did not include Alice's prompt.
+This is evidence for documenting path-stability expectations, not a claim that Codex violates an
+existing contract. Migration of old paths and hostile same-UID access remain out of scope of this test.
+
 We recognize the current policy does not accept external PRs. This is a design discussion,
 not a request to merge the launcher or to add shared-UID password isolation to Codex.

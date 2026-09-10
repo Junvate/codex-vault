@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+- Fixed real Codex 0.153.4 resume failures after a Vault close/reopen by using stable per-profile
+  runtime paths under a canonical runtime root; directories are still created exclusively.
+- Refused pre-existing runtime directories/files/symlinks without modifying them.
+- Removed plaintext runtime before releasing the profile lock and propagated cleanup errors.
+- Added opt-in real-Codex exec/resume tests against a loopback Responses fixture, plus stable-path
+  and stale-path regressions. No real credentials or model service are needed.
+- Older sessions created under random paths and runtime-root relocation still require migration;
+  no automatic database rewriting is performed.
+
 ## 0.2.0-alpha.1 - 2026-09-10
 
 - Added the `codex-vaultd` foreground Linux daemon and `codex-vault daemon status` client.
